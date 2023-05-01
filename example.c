@@ -1,50 +1,59 @@
-/* 
- * WHAT THIS EXAMPLE DOES
- * 
- * We create a pool of 4 threads and then add 40 tasks to the pool(20 task1 
- * functions and 20 task2 functions). task1 and task2 simply print which thread is running them.
- * 
- * As soon as we add the tasks to the pool, the threads will run them. It can happen that 
- * you see a single thread running all the tasks (highly unlikely). It is up the OS to
- * decide which thread will run what. So it is not an error of the thread pool but rather
- * a decision of the OS.
- * 
- * */
-
 #include <stdio.h>
 #include <pthread.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <stdlib.h>
+#include <unistd.h>
 #include <stdint.h>
-//#include "thpool.h"
+#include "thpool.h"
 #include "scanner.h"
 
-void task(void *arg){
-	printf("Thread #%u working on %d\n", (int)pthread_self(), (int) arg);
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+
+void ping_check(void *arg) {
+    pthread_mutex_lock(&mutex);
+    TargetList *target_list = (TargetList *) arg;
+    for (int i = 0; i < target_list->target_count; i++) {
+        Target *target = &target_list->targets[i];
+        if (target->status == UNKNOWN) {
+            char cmd[256];
+            sprintf(cmd, "ping -c 1 -W 1 %s > /dev/null", inet_ntoa(target->ip_addr));
+            FILE *fp = popen(cmd, "r");
+            if (fp == NULL) {
+                printf("Failed to execute command for %s\n", inet_ntoa(target->ip_addr));
+                continue;
+            }
+            int ret = pclose(fp);
+            if (ret == 0) {
+                target->status = UP;
+                printf("%s is UP\n", inet_ntoa(target->ip_addr));
+            } else {
+                target->status = DOWN;
+                printf("%s is DOWN\n", inet_ntoa(target->ip_addr));
+            }
+        }
+    }
+    pthread_mutex_unlock(&mutex);
 }
 
 
 int main(int argc, char* argv[]){
-	
-	char ip_input[BUF_SIZE] = "192.168.127.128/29";
+    char ip_input[BUF_SIZE] = "192.168.127.128/30";
+    TargetList *my_target_list = get_target_list(ip_input);
 
+    puts("Making threadpool with 4 threads");
+    threadpool thpool = thpool_init(4);
 
-	TargetList * my_target_list = get_target_list(ip_input);
-	print_target_list(my_target_list);
+    puts("Adding tasks to threadpool");
+    for (int i = 0; i < my_target_list->target_count; i++){
+        thpool_add_work(thpool, ping_check, my_target_list);
+    }
 
+    thpool_wait(thpool);
+    puts("Killing threadpool");
+    thpool_destroy(thpool);
+    print_target_list(my_target_list);
 
-
-	//original example
-	// puts("Making threadpool with 4 threads");
-	// threadpool thpool = thpool_init(4);
-
-	// puts("Adding 40 tasks to threadpool");
-	// int i;
-	// for (i=0; i<40; i++){
-	// 	thpool_add_work(thpool, task, (void*)(uintptr_t)i);
-	// };
-
-	// thpool_wait(thpool);
-	// puts("Killing threadpool");
-	// thpool_destroy(thpool);
-	
-	return 0;
+    return 0;
 }

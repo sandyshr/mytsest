@@ -10,7 +10,7 @@
 
 typedef enum {SINGLE, CSV, CIDR} Request_Type;
 
-typedef enum {UP, DOWN} IP_Status;
+typedef enum {UP, DOWN, UNKNOWN} IP_Status;
 //Header file for scanner 
 
 typedef struct target {
@@ -33,7 +33,7 @@ typedef struct target_list {
 
 TargetList *get_target_list(char * ip_input);
 TargetList *init_target_list();
-void ping_check(TargetList *target_list);
+void ping_check(void * arg);
 
 
 

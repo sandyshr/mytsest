@@ -89,7 +89,7 @@ TargetList *parse_cidr_ip_addrs(char *ip_input){
         Target *target = &target_list->targets[i];
         target->ip_addr = target_ip_addr;
         target->port_list = NULL; //we dont know yet
-        target->status = DOWN; //we will call id down for now
+        target->status = UNKNOWN; //we will call id down for now
     }
 
     return target_list;
@@ -111,9 +111,24 @@ TargetList *parse_single_ip_addr(char* ip_input){
 
 
 
-void ping_check(TargetList *target_list){
-    
-}
+//copying it in main.c
+// void ping_check(void * arg) {
+//     TargetList *target_list = (TargetList *)arg;
+//     for (int i = 0; i < target_list->target_count; i++) {
+//         Target *target = &target_list->targets[i];
+//         char cmd[256];
+//         sprintf(cmd, "ping -c 1%s > /dev/null", inet_ntoa(target->ip_addr));
+//         int ret = system(cmd);
+//         if (ret == 0) {
+//             target->status = UP;
+//             printf("%s is UP\n", inet_ntoa(target->ip_addr));
+//         } else {
+//             target->status = DOWN;
+//             printf("%s is DOWN\n", inet_ntoa(target->ip_addr));
+//         }
+//     }
+// }
+
 
 
 
