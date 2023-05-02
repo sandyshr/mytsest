@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdint.h>
+#include <netdb.h>
 #include "thpool.h"
 #include "scanner.h"
 
@@ -13,6 +14,7 @@ pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 
 TargetList *my_target_list;
+
 
 void ping_check(void *arg) {
     //TargetList *target_list = (TargetList *) arg;
@@ -47,8 +49,18 @@ void ping_check(void *arg) {
 
 
 int main(int argc, char* argv[]){
-    char ip_input[BUF_SIZE] = "192.168.127.128/26";
+    char ip_input[BUF_SIZE] = "192.168.127.128/29";
+    char port_input[BUF_SIZE] = "20-30";
     my_target_list = get_target_list(ip_input);
+    Port_Struct *target_port_list = get_port_list(port_input);
+    printf("Total Targets %d\n", my_target_list->target_count);
+    printf("Total ports: %d\n", my_target_list->targets->port_count);
+
+    //testing port info
+    for (int i = 0; i < my_target_list->targets->port_count; i++) {
+        printf("Port Num: %d Srv Name: %s\n", target_port_list[i].port_num, target_port_list[i].port_info->s_name);
+    }
+    
 
     puts("Making threadpool with 4 threads");
     threadpool thpool = thpool_init(8);

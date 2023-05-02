@@ -3,9 +3,12 @@
 #include <stdlib.h>
 #include <arpa/inet.h>
 #include <math.h>
+#include <errno.h>
+#include <netdb.h>
+
 #include "scanner.h"
 
-
+extern TargetList *my_target_list;
 //Steps:
 /*
 1. create a function that will accepts single ip address, cidr notation, or csv ip addresses and print them. 
@@ -17,8 +20,8 @@ void print_target_list(TargetList *target_list) {
     printf("Target Count: %d\n", target_list->target_count);
     for (int i = 0; i < target_list->target_count; i++) {
         printf("Target %d: IP = %s, Status = %s\n", i+1,
-         inet_ntoa(target_list->targets[i].ip_addr),
-          target_list->targets[i].status==0 ? "Up!" : "Down!");
+        inet_ntoa(target_list->targets[i].ip_addr),
+        target_list->targets[i].status==0 ? "Up!" : "Down!");
     }
 }
 
@@ -46,6 +49,20 @@ TargetList *init_target_list(){
     new_target_list->targets = NULL;
     return new_target_list;
 }
+
+
+Target *init_target() {
+    Target *new_target = malloc(sizeof(Target));
+    new_target->ip_addr.s_addr = 0;
+    new_target->port_count = 0;
+    new_target->port_list = NULL;
+    new_target->status = UNKNOWN;
+    return new_target;
+}
+
+
+
+
 
 
 //
@@ -105,6 +122,94 @@ TargetList *parse_csv_ip_addrs(char * ip_input){
 
 TargetList *parse_single_ip_addr(char* ip_input){
     //TODO
+    return NULL;
+}
+
+
+////following function deals with port parsing
+Port_Struct *get_port_list(char * port_input) {
+    Port_Struct * new_port_struct_ptr = {0};
+    //first finds out if its csv, range or single ip
+    if (strchr(port_input, ',') != NULL) { //i.e , is found
+        new_port_struct_ptr = parse_csv_ports(port_input);
+    } else if (strchr(port_input, '-') != NULL) {
+        new_port_struct_ptr = parse_range_ports(port_input);
+    } else {
+        new_port_struct_ptr = parse_single_port(port_input);
+    }
+    return new_port_struct_ptr;
+    //loo
+}
+
+Port_Struct* parse_range_ports(char* port_input) {
+    Port_Struct* port_list = NULL;
+    char* tok;
+    int start_port, end_port, total_ports;
+
+    tok = strtok(port_input, "-");
+    if (tok != NULL) {
+        start_port = strtol(tok, NULL, 10);
+        if (errno != 0) {
+            perror("strtol");
+            return NULL;
+        }
+
+        tok = strtok(NULL, "-");
+        if (tok != NULL) {
+            end_port = strtol(tok, NULL, 10);
+            if (errno != 0) {
+                perror("strtol");
+                return NULL;
+            }
+        } else {
+            end_port = start_port;
+        }
+    } else {
+        printf("Invalid port range!\n");
+        return NULL;
+    }
+
+    if (end_port < start_port) {
+        printf("Invalid port range!\n");
+        return NULL;
+    }
+
+    total_ports = end_port - start_port + 1;
+    port_list = malloc(sizeof(Port_Struct) * total_ports);
+    if (port_list == NULL) {
+        perror("malloc");
+        return NULL;
+    }
+
+    for (int i = 0; i < total_ports; i++) {
+        port_list[i].port_num = start_port;
+        port_list[i].port_state = UNK;
+
+        port_list[i].port_info = malloc(sizeof(struct servent)); 
+        struct servent * se = getservbyport(htons(start_port), NULL);
+        if (se != NULL) {
+            port_list[i].port_info->s_aliases = se->s_aliases;
+            port_list[i].port_info->s_name = strdup( se->s_name);
+            port_list[i].port_info->s_port = se->s_port;
+            port_list[i].port_info->s_proto= strdup(se->s_proto);
+        } else { //fill some info
+            port_list[i].port_info->s_aliases = NULL;
+            port_list[i].port_info->s_name = strdup("UNK");
+            port_list[i].port_info->s_port = ntohs(start_port);
+            port_list[i].port_info->s_proto= strdup("UNK");
+        }
+
+        start_port++;
+    }
+    my_target_list->targets->port_count = total_ports;
+    return port_list;
+}
+
+
+Port_Struct *parse_csv_ports(char *port_input){
+    return NULL;
+}
+Port_Struct *parse_single_port(char *port_input){
     return NULL;
 }
 
